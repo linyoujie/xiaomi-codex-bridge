@@ -67,13 +67,13 @@ public final class MainActivity extends Activity {
             c.save();c.translate(dx,dy);long now=m.hostNow();
             if(!m.connected){
                 text(c,new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date(now)),w/2f,h/2f+8,112,Color.rgb(248,250,252),false,Paint.Align.CENTER);
-                text(c,chineseDate(now),w/2f,h/2f+62,30,Color.rgb(148,163,184),false,Paint.Align.CENTER);
+                text(c,chineseDate(now),w/2f,h/2f+62,30,Color.rgb(203,213,225),false,Paint.Align.CENTER);
                 connection(c,w-38,h-34,false);c.restore();return;
             }
             if(page==1){homePage(c,m,w,h,now);connection(c,w-38,h-34,true);pageDots(c,w,h,1);c.restore();return;}
             text(c,"C O D E X",34,68,28,colorFor(m.state),true,Paint.Align.LEFT);
             text(c,new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date(now)),w-48,66,52,Color.WHITE,false,Paint.Align.RIGHT);
-            text(c,chineseDate(now),w-48,100,20,Color.rgb(100,116,139),false,Paint.Align.RIGHT);
+            text(c,chineseDate(now),w-48,100,20,Color.rgb(203,213,225),false,Paint.Align.RIGHT);
             String[] titles=m.titles();taskIndex%=titles.length;previousTaskIndex%=titles.length;String shown=titles[taskIndex];
             String[] lines=wrap(shown,15);float size=lines.length>1?48:(shown.length()>16?50:62),firstY=lines.length>1?202:236;
             float progress=flipStarted==0?1f:Math.min(1f,(SystemClock.elapsedRealtime()-flipStarted)/500f);
@@ -87,7 +87,7 @@ public final class MainActivity extends Activity {
         private void drawTitle(Canvas c,String title,float x,float y){String[] lines=wrap(title,15);float size=lines.length>1?48:(title.length()>16?50:62);for(int i=0;i<lines.length;i++)text(c,lines[i],x,y+i*60,size,Color.rgb(248,250,252),false,Paint.Align.LEFT);}
         private void homePage(Canvas c,StatusModel m,int w,int h,long now){
             text(c,new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date(now)),w/2f,174,92,Color.WHITE,false,Paint.Align.CENTER);
-            text(c,chineseDate(now),w/2f,218,27,Color.rgb(148,163,184),false,Paint.Align.CENTER);commute(c,m,w,h,now);
+            text(c,chineseDate(now),w/2f,218,27,Color.rgb(203,213,225),false,Paint.Align.CENTER);commute(c,m,w,h,now);
         }
         private void pageDots(Canvas c,int w,int h,int selected){for(int i=0;i<2;i++){paint.setColor(i==selected?Color.rgb(94,234,212):Color.rgb(51,65,85));c.drawCircle(w/2f+(i==0?-10:10),h-20,i==selected?4:3,paint);}}
         private void commute(Canvas c,StatusModel m,int w,int h,long now){
