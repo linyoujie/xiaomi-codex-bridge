@@ -20,6 +20,7 @@ public final class StatusReceiver extends BroadcastReceiver {
             .putInt("active_count",Math.max(0,intent.getIntExtra("active_count",0)))
             .putInt("quota_5h_percent",clamp(intent.getIntExtra("quota_5h_percent",-1)))
             .putInt("quota_7d_percent",clamp(intent.getIntExtra("quota_7d_percent",-1)))
+            .putLong("quota_7d_resets_at_ms",positive(intent.getLongExtra("quota_7d_resets_at_ms",0)))
             .putBoolean("commute_available",intent.getBooleanExtra("commute_available",false))
             .putInt("commute_duration_min",commuteMinutes(intent.getIntExtra("commute_duration_min",-1)))
             .putString("commute_options",cleanCommuteOptions(intent.getStringExtra("commute_options")))

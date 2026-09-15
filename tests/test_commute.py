@@ -60,10 +60,10 @@ class CommuteMonitorTests(unittest.TestCase):
 class UsageParserTests(unittest.TestCase):
     def test_reads_weekly_used_percent_from_latest_rate_limit_event(self):
         old={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":2,"window_minutes":300},"secondary":{"used_percent":18,"window_minutes":10080}}}}}
-        newest={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":7,"window_minutes":300},"secondary":{"used_percent":27,"window_minutes":10080}}}}}
+        newest={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":7,"window_minutes":300},"secondary":{"used_percent":27,"window_minutes":10080,"resets_at":1_800_000_000}}}}}
         with tempfile.NamedTemporaryFile("w",suffix=".jsonl") as handle:
             handle.write(json.dumps(old)+"\n");handle.write(json.dumps(newest)+"\n");handle.flush()
-            self.assertEqual(bridge.usage_from_session(handle.name),{"quota_5h_percent":7,"quota_7d_percent":27})
+            self.assertEqual(bridge.usage_from_session(handle.name),{"quota_5h_percent":7,"quota_7d_percent":27,"quota_7d_resets_at_ms":1_800_000_000_000})
 
     def test_supports_weekly_only_limit(self):
         event={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":27,"window_minutes":10080}}}}}

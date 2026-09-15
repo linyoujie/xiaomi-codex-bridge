@@ -276,10 +276,12 @@ def usage_from_session(path):
         windows=[]
         for value in limits.values():
             if isinstance(value,dict) and isinstance(value.get("window_minutes"),(int,float)) and isinstance(value.get("used_percent"),(int,float)):
-                windows.append((int(value["window_minutes"]),max(0,min(100,int(round(value["used_percent"]))))))
+                reset_ms=max(0,int(value.get("resets_at",0))*1000)
+                windows.append((int(value["window_minutes"]),max(0,min(100,int(round(value["used_percent"])))),reset_ms))
         weekly=[item for item in windows if item[0]>=6*24*60]
         short=[item for item in windows if 240<=item[0]<=360]
-        return {"quota_5h_percent":short[0][1] if short else -1,"quota_7d_percent":weekly[0][1] if weekly else -1}
+        return {"quota_5h_percent":short[0][1] if short else -1,"quota_7d_percent":weekly[0][1] if weekly else -1,
+            "quota_7d_resets_at_ms":weekly[0][2] if weekly else 0}
     except (OSError,ValueError,TypeError,json.JSONDecodeError,UnicodeDecodeError):return {}
 
 class UsageMonitor:
@@ -348,7 +350,7 @@ def merge_active_snapshots(live,fallback):
 def send(snapshot):
     now=int(time.time()*1000)
     titles="|||".join(clean_title(title).replace("|||"," ") for title in snapshot.get("task_titles",[snapshot["title"]])[:6])
-    remote=["am","broadcast","-n","com.codex.statusdisplay/.StatusReceiver","-a","com.codex.status.UPDATE","--es","state",snapshot["state"],"--es","title",clean_title(snapshot["title"]),"--es","task_titles",titles,"--es","phase",snapshot.get("phase",""),"--el","started_at_ms",str(snapshot["started_at_ms"]),"--ei","active_count",str(snapshot["active_count"]),"--ei","quota_5h_percent",str(snapshot.get("quota_5h_percent",-1)),"--ei","quota_7d_percent",str(snapshot.get("quota_7d_percent",-1)),"--ez","commute_available",str(bool(snapshot.get("commute_available",False))).lower(),"--ei","commute_duration_min",str(snapshot.get("commute_duration_min",-1)),"--es","commute_options",snapshot.get("commute_options",""),"--es","commute_mode",snapshot.get("commute_mode","transit"),"--el","commute_arrival_at_ms",str(snapshot.get("commute_arrival_at_ms",0)),"--el","commute_updated_at_ms",str(snapshot.get("commute_updated_at_ms",0)),"--el","host_time_ms",str(now),"--ez","connected","true"]
+    remote=["am","broadcast","-n","com.codex.statusdisplay/.StatusReceiver","-a","com.codex.status.UPDATE","--es","state",snapshot["state"],"--es","title",clean_title(snapshot["title"]),"--es","task_titles",titles,"--es","phase",snapshot.get("phase",""),"--el","started_at_ms",str(snapshot["started_at_ms"]),"--ei","active_count",str(snapshot["active_count"]),"--ei","quota_5h_percent",str(snapshot.get("quota_5h_percent",-1)),"--ei","quota_7d_percent",str(snapshot.get("quota_7d_percent",-1)),"--el","quota_7d_resets_at_ms",str(snapshot.get("quota_7d_resets_at_ms",0)),"--ez","commute_available",str(bool(snapshot.get("commute_available",False))).lower(),"--ei","commute_duration_min",str(snapshot.get("commute_duration_min",-1)),"--es","commute_options",snapshot.get("commute_options",""),"--es","commute_mode",snapshot.get("commute_mode","transit"),"--el","commute_arrival_at_ms",str(snapshot.get("commute_arrival_at_ms",0)),"--el","commute_updated_at_ms",str(snapshot.get("commute_updated_at_ms",0)),"--el","host_time_ms",str(now),"--ez","connected","true"]
     args=[ADB,"-s",SERIAL,"shell"," ".join(shlex.quote(part) for part in remote)]
     try:
         result=subprocess.run(args,capture_output=True,text=True,timeout=12)

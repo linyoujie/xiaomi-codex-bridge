@@ -81,7 +81,7 @@ public final class MainActivity extends Activity {
             text(c,stateLabel(m.state),50,firstY+lines.length*62,34,colorFor(m.state),false,Paint.Align.LEFT);
             text(c,elapsed(m.startedAtMs,now),48,h-52,38,Color.WHITE,false,Paint.Align.LEFT);
             text(c,Math.max(0,m.activeCount)+" 个任务",264,h-52,26,Color.rgb(148,163,184),false,Paint.Align.LEFT);
-            weeklyUsage(c,w-300,h-82,m.quota7d);
+            weeklyUsage(c,w-300,h-82,m.quota7d,m.quota7dResetsAtMs,now);
             connection(c,w-42,126,m.connected);pageDots(c,w,h,0);c.restore();
         }
         private void drawTitle(Canvas c,String title,float x,float y){String[] lines=wrap(title,15);float size=lines.length>1?48:(title.length()>16?50:62);for(int i=0;i<lines.length;i++)text(c,lines[i],x,y+i*60,size,Color.rgb(248,250,252),false,Paint.Align.LEFT);}
@@ -104,9 +104,15 @@ public final class MainActivity extends Activity {
             }
             text(c,"空闲",48,h-48,20,Color.rgb(71,85,105),false,Paint.Align.LEFT);
         }
-        private void weeklyUsage(Canvas c,float x,float y,int value){
+        private void weeklyUsage(Canvas c,float x,float y,int value,long resetsAt,long now){
             if(value<0)return;
             int remaining=Math.max(0,100-value);
+            if(resetsAt>now){
+                long minutes=Math.max(1,(resetsAt-now+59_999L)/60_000L);
+                String until=minutes<24*60?((minutes+59)/60)+"小时后 reset":((minutes+1439)/1440)+"天后 reset";
+                String weekday=new SimpleDateFormat("EEE.",Locale.US).format(new Date(resetsAt));
+                text(c,weekday+" · "+until,x,y,14,Color.rgb(100,116,139),false,Paint.Align.LEFT);
+            }
             text(c,"剩下 "+remaining+"%",x+260,y,18,Color.rgb(203,213,225),false,Paint.Align.RIGHT);
             float barY=y+25;paint.setStrokeWidth(8);paint.setStrokeCap(Paint.Cap.ROUND);
             paint.setColor(Color.rgb(45,55,72));c.drawLine(x,barY,x+260,barY,paint);
