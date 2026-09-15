@@ -110,8 +110,8 @@ public final class MainActivity extends Activity {
             if(resetsAt>now){
                 long minutes=Math.max(1,(resetsAt-now+59_999L)/60_000L);
                 String until=minutes<24*60?((minutes+59)/60)+"小时后 reset":((minutes+1439)/1440)+"天后 reset";
-                String weekday=new SimpleDateFormat("EEE.",Locale.US).format(new Date(resetsAt));
-                text(c,weekday+" · "+until,x,y,14,Color.rgb(100,116,139),false,Paint.Align.LEFT);
+                String weekday=shortChineseWeekday(resetsAt);
+                text(c,weekday+" · "+until,x,y,18,Color.rgb(203,213,225),false,Paint.Align.LEFT);
             }
             text(c,"剩下 "+remaining+"%",x+260,y,18,Color.rgb(203,213,225),false,Paint.Align.RIGHT);
             float barY=y+25;paint.setStrokeWidth(8);paint.setStrokeCap(Paint.Cap.ROUND);
@@ -129,5 +129,6 @@ public final class MainActivity extends Activity {
         private static String stateLabel(String s){if("waiting".equals(s))return "等待确认";if("completed".equals(s))return "已完成";if("failed".equals(s))return "发生错误";if("idle".equals(s))return "空闲";return "正在构建";}
         private static String elapsed(long start,long now){long sec=Math.max(0,(now-start)/1000L);return String.format(Locale.CHINA,"%02d 分 %02d 秒",sec/60,sec%60);}
         private static String chineseDate(long ms){Date d=new Date(ms);String date=new SimpleDateFormat("M月d日",Locale.CHINA).format(d);String[] week={"星期日","星期一","星期二","星期三","星期四","星期五","星期六"};java.util.Calendar cal=java.util.Calendar.getInstance(Locale.CHINA);cal.setTime(d);return date+"  "+week[cal.get(java.util.Calendar.DAY_OF_WEEK)-1];}
+        private static String shortChineseWeekday(long ms){String[] week={"周日","周一","周二","周三","周四","周五","周六"};java.util.Calendar cal=java.util.Calendar.getInstance(Locale.CHINA);cal.setTimeInMillis(ms);return week[cal.get(java.util.Calendar.DAY_OF_WEEK)-1];}
     }
 }
