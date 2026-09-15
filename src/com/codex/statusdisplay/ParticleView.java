@@ -22,6 +22,7 @@ final class ParticleView extends GLSurfaceView {
         renderer=new ParticleRenderer();setRenderer(renderer);setRenderMode(RENDERMODE_WHEN_DIRTY);
     }
     void setState(String state){renderer.setState(state);}
+    void replayCompletion(){renderer.replayCompletion();}
     @Override protected void onAttachedToWindow(){super.onAttachedToWindow();frames.removeCallbacks(draw);frames.post(draw);}
     @Override protected void onDetachedFromWindow(){frames.removeCallbacks(draw);super.onDetachedFromWindow();}
     @Override protected void onWindowVisibilityChanged(int visibility){
@@ -104,6 +105,7 @@ final class ParticleView extends GLSurfaceView {
             else if(!"completed".equals(next))completedStarted=-1L;
             state=next;
         }
+        void replayCompletion(){if("completed".equals(state))completedStarted=SystemClock.elapsedRealtime();}
         private static void setStateColor(int uniform,String s){
             if("waiting".equals(s))GLES20.glUniform3f(uniform,.98f,.67f,.12f);
             else if("completed".equals(s))GLES20.glUniform3f(uniform,.29f,.87f,.50f);

@@ -48,11 +48,11 @@ public final class MainActivity extends Activity {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final Handler clock=new Handler();private final ParticleView particles;private StatusModel model;
         private int page=0,taskIndex=0,previousTaskIndex=0;private long lastTaskFlip=SystemClock.elapsedRealtime(),flipStarted=0;private float touchX;
         private final Runnable tick=new Runnable(){@Override public void run(){StatusModel e=model.effective();particles.setState(e.connected?e.state:"idle");model=e;String[] titles=e.titles();long now=SystemClock.elapsedRealtime();if(page==0&&titles.length>1&&now-lastTaskFlip>=6000){previousTaskIndex=taskIndex%titles.length;taskIndex=(taskIndex+1)%titles.length;lastTaskFlip=now;flipStarted=now;}invalidate();clock.postDelayed(this,1000L);}};
-        StatusOverlay(Context c,ParticleView particles){super(c);this.particles=particles;setClickable(true);setLayerType(View.LAYER_TYPE_SOFTWARE,null);model=StatusModel.load(c).effective();clock.post(tick);}
-        void setModel(StatusModel m){model=m;invalidate();}
+        StatusOverlay(Context c,ParticleView particles){super(c);this.particles=particles;setClickable(true);setLayerType(View.LAYER_TYPE_SOFTWARE,null);model=StatusModel.load(c).effective();if("completed".equals(model.state))page=1;clock.post(tick);}
+        void setModel(StatusModel m){boolean newlyCompleted="completed".equals(m.state)&&!"completed".equals(model.state);model=m;if(newlyCompleted)page=1;invalidate();}
         @Override public boolean onTouchEvent(MotionEvent event){
             if(event.getAction()==MotionEvent.ACTION_DOWN){touchX=event.getX();return true;}
-            if(event.getAction()==MotionEvent.ACTION_UP){float dx=event.getX()-touchX;if(Math.abs(dx)>70){page=dx<0?1:0;invalidate();performClick();}return true;}return true;
+            if(event.getAction()==MotionEvent.ACTION_UP){float dx=event.getX()-touchX;if(Math.abs(dx)>70){page=dx<0?1:0;if(page==0&&"completed".equals(model.state))particles.replayCompletion();invalidate();performClick();}return true;}return true;
         }
         @Override public boolean performClick(){super.performClick();return true;}
         @Override protected void onDetachedFromWindow(){clock.removeCallbacks(tick);super.onDetachedFromWindow();}
@@ -65,7 +65,7 @@ public final class MainActivity extends Activity {
                 text(c,chineseDate(now),w/2f,h/2f+62,30,Color.rgb(148,163,184),false,Paint.Align.CENTER);
                 connection(c,w-38,h-34,false);c.restore();return;
             }
-            if(page==1||"idle".equals(m.state)){homePage(c,m,w,h,now);connection(c,w-38,h-34,true);pageDots(c,w,h,page==1?1:0);c.restore();return;}
+            if(page==1){homePage(c,m,w,h,now);connection(c,w-38,h-34,true);pageDots(c,w,h,1);c.restore();return;}
             text(c,"C O D E X",34,68,28,colorFor(m.state),true,Paint.Align.LEFT);
             text(c,new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date(now)),w-48,66,52,Color.WHITE,false,Paint.Align.RIGHT);
             text(c,chineseDate(now),w-48,100,20,Color.rgb(100,116,139),false,Paint.Align.RIGHT);
@@ -75,7 +75,7 @@ public final class MainActivity extends Activity {
             if(progress<1f){drawTitle(c,titles[previousTaskIndex],48-progress*w,firstY);drawTitle(c,shown,48+(1-progress)*w,firstY);}else for(int i=0;i<lines.length;i++)text(c,lines[i],48,firstY+i*60,size,Color.rgb(248,250,252),false,Paint.Align.LEFT);
             text(c,stateLabel(m.state),50,firstY+lines.length*62,34,colorFor(m.state),false,Paint.Align.LEFT);
             text(c,elapsed(m.startedAtMs,now),48,h-52,38,Color.WHITE,false,Paint.Align.LEFT);
-            text(c,Math.max(1,m.activeCount)+" 个任务",264,h-52,26,Color.rgb(148,163,184),false,Paint.Align.LEFT);
+            text(c,Math.max(0,m.activeCount)+" 个任务",264,h-52,26,Color.rgb(148,163,184),false,Paint.Align.LEFT);
             weeklyUsage(c,w-300,h-82,m.quota7d);
             connection(c,w-42,126,m.connected);pageDots(c,w,h,0);c.restore();
         }
@@ -115,7 +115,7 @@ public final class MainActivity extends Activity {
         }
         private static String[] wrap(String value,int width){String s=value==null||value.trim().isEmpty()?"Codex":value.trim();if(s.length()<=width)return new String[]{s};String a=s.substring(0,width),b=s.substring(width,Math.min(s.length(),width*2-1));if(s.length()>width*2-1)b+="…";return new String[]{a,b};}
         private static int colorFor(String s){if("waiting".equals(s))return Color.rgb(251,191,36);if("completed".equals(s))return Color.rgb(74,222,128);if("failed".equals(s))return Color.rgb(248,113,113);if("idle".equals(s))return Color.rgb(100,116,139);return Color.rgb(94,234,212);}
-        private static String stateLabel(String s){if("waiting".equals(s))return "等待确认";if("completed".equals(s))return "已完成";if("failed".equals(s))return "发生错误";return "正在构建";}
+        private static String stateLabel(String s){if("waiting".equals(s))return "等待确认";if("completed".equals(s))return "已完成";if("failed".equals(s))return "发生错误";if("idle".equals(s))return "空闲";return "正在构建";}
         private static String elapsed(long start,long now){long sec=Math.max(0,(now-start)/1000L);return String.format(Locale.CHINA,"%02d 分 %02d 秒",sec/60,sec%60);}
         private static String chineseDate(long ms){Date d=new Date(ms);String date=new SimpleDateFormat("M月d日",Locale.CHINA).format(d);String[] week={"星期日","星期一","星期二","星期三","星期四","星期五","星期六"};java.util.Calendar cal=java.util.Calendar.getInstance(Locale.CHINA);cal.setTime(d);return date+"  "+week[cal.get(java.util.Calendar.DAY_OF_WEEK)-1];}
     }

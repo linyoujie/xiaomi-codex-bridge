@@ -40,10 +40,6 @@ final class StatusModel {
     long hostNow(){return hostTimeMs+Math.max(0,SystemClock.elapsedRealtime()-hostElapsedMs);}
     StatusModel effective(){
         boolean fresh=connected&&SystemClock.elapsedRealtime()-hostElapsedMs<45_000L;
-        if("completed".equals(state)&&completedAtMs>0&&hostNow()-completedAtMs>=COMPLETED_HOLD_MS)
-            return new StatusModel("idle","Codex","","",hostNow(),0,quota5h,quota7d,
-                hostTimeMs,hostElapsedMs,fresh,completedAtMs,commuteAvailable,commuteDurationMin,commuteOptions,commuteMode,
-                commuteArrivalAtMs,commuteUpdatedAtMs);
         if(fresh!=connected)return new StatusModel(state,title,phase,taskTitles,startedAtMs,activeCount,quota5h,quota7d,
             hostTimeMs,hostElapsedMs,fresh,completedAtMs,commuteAvailable,commuteDurationMin,commuteOptions,commuteMode,
             commuteArrivalAtMs,commuteUpdatedAtMs);
