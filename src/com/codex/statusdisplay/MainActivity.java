@@ -72,6 +72,7 @@ public final class MainActivity extends Activity {
             }
             if(page==1){homePage(c,m,w,h,now);connection(c,w-38,h-34,true);pageDots(c,w,h,1);c.restore();return;}
             text(c,"C O D E X",34,68,28,colorFor(m.state),true,Paint.Align.LEFT);
+            text(c,Math.max(0,m.activeCount)+" 个任务",184,67,20,Color.rgb(203,213,225),false,Paint.Align.LEFT);
             text(c,new SimpleDateFormat("HH:mm",Locale.CHINA).format(new Date(now)),w-48,66,52,Color.WHITE,false,Paint.Align.RIGHT);
             text(c,chineseDate(now),w-48,100,20,Color.rgb(203,213,225),false,Paint.Align.RIGHT);
             String[] titles=m.titles();taskIndex%=titles.length;previousTaskIndex%=titles.length;String shown=titles[taskIndex];
@@ -80,7 +81,6 @@ public final class MainActivity extends Activity {
             if(progress<1f){drawTitle(c,titles[previousTaskIndex],48-progress*w,firstY);drawTitle(c,shown,48+(1-progress)*w,firstY);}else for(int i=0;i<lines.length;i++)text(c,lines[i],48,firstY+i*60,size,Color.rgb(248,250,252),false,Paint.Align.LEFT);
             text(c,stateLabel(m.state),50,firstY+lines.length*62,34,colorFor(m.state),false,Paint.Align.LEFT);
             text(c,elapsed(m.startedAtMs,now),48,h-52,38,Color.WHITE,false,Paint.Align.LEFT);
-            text(c,Math.max(0,m.activeCount)+" 个任务",264,h-52,26,Color.rgb(148,163,184),false,Paint.Align.LEFT);
             weeklyUsage(c,w-300,h-82,m.quota7d,m.quota7dResetsAtMs,now);
             connection(c,w-42,126,m.connected);pageDots(c,w,h,0);c.restore();
         }
