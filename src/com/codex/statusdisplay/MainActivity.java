@@ -49,7 +49,12 @@ public final class MainActivity extends Activity {
         private int page=0,taskIndex=0,previousTaskIndex=0;private long lastTaskFlip=SystemClock.elapsedRealtime(),flipStarted=0;private float touchX;
         private final Runnable tick=new Runnable(){@Override public void run(){StatusModel e=model.effective();particles.setState(e.connected?e.state:"idle");model=e;String[] titles=e.titles();long now=SystemClock.elapsedRealtime();if(page==0&&titles.length>1&&now-lastTaskFlip>=6000){previousTaskIndex=taskIndex%titles.length;taskIndex=(taskIndex+1)%titles.length;lastTaskFlip=now;flipStarted=now;}invalidate();clock.postDelayed(this,1000L);}};
         StatusOverlay(Context c,ParticleView particles){super(c);this.particles=particles;setClickable(true);setLayerType(View.LAYER_TYPE_SOFTWARE,null);model=StatusModel.load(c).effective();if("completed".equals(model.state))page=1;clock.post(tick);}
-        void setModel(StatusModel m){boolean newlyCompleted="completed".equals(m.state)&&!"completed".equals(model.state);model=m;if(newlyCompleted)page=1;invalidate();}
+        void setModel(StatusModel m){
+            boolean stateChanged=!m.state.equals(model.state);model=m;
+            if(stateChanged&&"completed".equals(m.state))page=1;
+            else if(stateChanged&&("working".equals(m.state)||"waiting".equals(m.state)||"failed".equals(m.state)))page=0;
+            invalidate();
+        }
         @Override public boolean onTouchEvent(MotionEvent event){
             if(event.getAction()==MotionEvent.ACTION_DOWN){touchX=event.getX();return true;}
             if(event.getAction()==MotionEvent.ACTION_UP){float dx=event.getX()-touchX;if(Math.abs(dx)>70){page=dx<0?1:0;if(page==0&&"completed".equals(model.state))particles.replayCompletion();invalidate();performClick();}return true;}return true;
