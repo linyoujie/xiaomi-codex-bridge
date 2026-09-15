@@ -16,11 +16,11 @@ final class BridgeManager {
         task.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         task.arguments = [script]
         var env = ProcessInfo.processInfo.environment
-        env["LX04_SERIAL"] = defaults.string(forKey: "serial") ?? "21065/C0VP67106"
+        env["LX04_SERIAL"] = defaults.string(forKey: "serial") ?? ""
         env["ADB_PATH"] = defaults.string(forKey: "adbPath") ?? "/opt/homebrew/bin/adb"
         env["CHROME_PATH"] = defaults.string(forKey: "chromePath") ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-        env["LX04_COMMUTE_ORIGIN"] = defaults.string(forKey: "origin") ?? "W 42nd St & Broadway, New York, NY 10036"
-        env["LX04_COMMUTE_DESTINATION"] = defaults.string(forKey: "destination") ?? "142nd St & 60th Ave, Flushing, NY 11355"
+        env["LX04_COMMUTE_ORIGIN"] = defaults.string(forKey: "origin") ?? ""
+        env["LX04_COMMUTE_DESTINATION"] = defaults.string(forKey: "destination") ?? ""
         env["LX04_COMMUTE_REFRESH_SECONDS"] = String(max(60, defaults.integer(forKey: "refreshSeconds")))
         task.environment = env
         let logDirectory = FileManager.default.homeDirectoryForCurrentUser
@@ -60,8 +60,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         let defaults = UserDefaults.standard
-        defaults.register(defaults: ["serial":"21065/C0VP67106", "origin":"W 42nd St & Broadway, New York, NY 10036",
-            "destination":"142nd St & 60th Ave, Flushing, NY 11355", "refreshSeconds":300,
+        defaults.register(defaults: ["serial":"", "origin":"",
+            "destination":"", "refreshSeconds":300,
             "adbPath":"/opt/homebrew/bin/adb", "chromePath":"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"])
         window = NSWindow(contentRect: NSRect(x:0,y:0,width:620,height:510), styleMask:[.titled,.closable,.miniaturizable], backing:.buffered, defer:false)
         window.title = "Xiaomi桥接器"; window.center(); window.isReleasedWhenClosed = false

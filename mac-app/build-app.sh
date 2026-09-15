@@ -9,12 +9,14 @@ xcrun clang -fobjc-arc -framework AppKit -framework WebKit "$ROOT/mac-app/main.m
 cp "$ROOT/mac-app/app.py" "$CONTENTS/Resources/app.py"
 cp "$ROOT/mac/codex_lx04_bridge.py" "$CONTENTS/Resources/codex_lx04_bridge.py"
 cp "$ROOT/build/codex-status.apk" "$CONTENTS/Resources/codex-status.apk"
+cp "$ROOT/assets/logo/codex-firefly-app-icon.png" "$CONTENTS/Resources/brand-logo.png"
 cp "$ROOT/mac-app/Info.plist" "$CONTENTS/Info.plist"
 ICONSET="$ROOT/build/AppIcon.iconset"
 rm -rf "$ICONSET";mkdir -p "$ICONSET"
+ROUNDED_ICON="$ROOT/assets/logo/codex-firefly-app-icon-rounded.png"
 for SIZE in 16 32 128 256 512; do
-  sips -z "$SIZE" "$SIZE" "$ROOT/assets/logo/codex-particle-app-icon.png" --out "$ICONSET/icon_${SIZE}x${SIZE}.png" >/dev/null
-  DOUBLE=$((SIZE * 2));sips -z "$DOUBLE" "$DOUBLE" "$ROOT/assets/logo/codex-particle-app-icon.png" --out "$ICONSET/icon_${SIZE}x${SIZE}@2x.png" >/dev/null
+  sips -z "$SIZE" "$SIZE" "$ROUNDED_ICON" --out "$ICONSET/icon_${SIZE}x${SIZE}.png" >/dev/null
+  DOUBLE=$((SIZE * 2));sips -z "$DOUBLE" "$DOUBLE" "$ROUNDED_ICON" --out "$ICONSET/icon_${SIZE}x${SIZE}@2x.png" >/dev/null
 done
 /usr/bin/python3 "$ROOT/mac-app/make_icns.py" "$ICONSET" "$CONTENTS/Resources/AppIcon.icns"
 chmod +x "$CONTENTS/MacOS/XiaomiBridge" "$CONTENTS/Resources/app.py" "$CONTENTS/Resources/codex_lx04_bridge.py"

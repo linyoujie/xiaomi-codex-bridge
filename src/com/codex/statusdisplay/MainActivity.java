@@ -76,7 +76,7 @@ public final class MainActivity extends Activity {
             text(c,stateLabel(m.state),50,firstY+lines.length*62,34,colorFor(m.state),false,Paint.Align.LEFT);
             text(c,elapsed(m.startedAtMs,now),48,h-52,38,Color.WHITE,false,Paint.Align.LEFT);
             text(c,Math.max(1,m.activeCount)+" 个任务",264,h-52,26,Color.rgb(148,163,184),false,Paint.Align.LEFT);
-            quota(c,w-300,h-88,"5H",m.quota5h,Color.rgb(94,234,212));quota(c,w-300,h-42,"7D",m.quota7d,Color.rgb(167,139,250));
+            weeklyUsage(c,w-300,h-82,m.quota7d);
             connection(c,w-42,126,m.connected);pageDots(c,w,h,0);c.restore();
         }
         private void drawTitle(Canvas c,String title,float x,float y){String[] lines=wrap(title,15);float size=lines.length>1?48:(title.length()>16?50:62);for(int i=0;i<lines.length;i++)text(c,lines[i],x,y+i*60,size,Color.rgb(248,250,252),false,Paint.Align.LEFT);}
@@ -99,10 +99,13 @@ public final class MainActivity extends Activity {
             }
             text(c,"空闲",48,h-48,20,Color.rgb(71,85,105),false,Paint.Align.LEFT);
         }
-        private void quota(Canvas c,float x,float y,String label,int value,int color){
-            if(value<0)return;text(c,label+"  "+value,x,y,18,Color.rgb(148,163,184),false,Paint.Align.LEFT);
-            paint.setStrokeWidth(6);paint.setStrokeCap(Paint.Cap.ROUND);paint.setColor(Color.rgb(45,55,72));c.drawLine(x+90,y-6,x+260,y-6,paint);
-            paint.setColor(color);c.drawLine(x+90,y-6,x+90+170*value/100f,y-6,paint);
+        private void weeklyUsage(Canvas c,float x,float y,int value){
+            if(value<0)return;
+            int remaining=Math.max(0,100-value);
+            text(c,"剩下 "+remaining+"%",x+260,y,18,Color.rgb(203,213,225),false,Paint.Align.RIGHT);
+            float barY=y+25;paint.setStrokeWidth(8);paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setColor(Color.rgb(45,55,72));c.drawLine(x,barY,x+260,barY,paint);
+            paint.setColor(Color.rgb(167,139,250));c.drawLine(x+260*(100-remaining)/100f,barY,x+260,barY,paint);
         }
         private void connection(Canvas c,float x,float y,boolean connected){
             paint.setColor(connected?Color.rgb(94,234,212):Color.rgb(71,85,105));paint.setShadowLayer(connected?10:0,0,0,paint.getColor());c.drawCircle(x,y,6,paint);paint.clearShadowLayer();

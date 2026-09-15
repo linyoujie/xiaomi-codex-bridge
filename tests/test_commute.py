@@ -1,5 +1,7 @@
 import importlib.util
+import json
 import pathlib
+import tempfile
 import unittest
 
 MODULE_PATH=pathlib.Path(__file__).parents[1]/"mac"/"codex_lx04_bridge.py"
@@ -54,5 +56,34 @@ class CommuteMonitorTests(unittest.TestCase):
         self.assertTrue(cached["commute_available"]);self.assertEqual(cached["commute_duration_min"],61)
         clock.advance(bridge.COMMUTE_EXPIRE_SECONDS-bridge.COMMUTE_STALE_SECONDS)
         self.assertFalse(monitor.snapshot(True)["commute_available"])
+
+class UsageParserTests(unittest.TestCase):
+    def test_reads_weekly_used_percent_from_latest_rate_limit_event(self):
+        old={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":2,"window_minutes":300},"secondary":{"used_percent":18,"window_minutes":10080}}}}}
+        newest={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":7,"window_minutes":300},"secondary":{"used_percent":27,"window_minutes":10080}}}}}
+        with tempfile.NamedTemporaryFile("w",suffix=".jsonl") as handle:
+            handle.write(json.dumps(old)+"\n");handle.write(json.dumps(newest)+"\n");handle.flush()
+            self.assertEqual(bridge.usage_from_session(handle.name),{"quota_5h_percent":7,"quota_7d_percent":27})
+
+    def test_supports_weekly_only_limit(self):
+        event={"type":"event_msg","payload":{"type":"token_count","info":{"rate_limits":{"primary":{"used_percent":27,"window_minutes":10080}}}}}
+        with tempfile.NamedTemporaryFile("w",suffix=".jsonl") as handle:
+            handle.write(json.dumps(event));handle.flush()
+            self.assertEqual(bridge.usage_from_session(handle.name)["quota_7d_percent"],27)
+
+class MultiTaskTests(unittest.TestCase):
+    def test_merges_ipc_and_session_tasks_without_duplicates(self):
+        live={"state":"working","title":"任务 A","task_titles":["任务 A"],"active_count":1}
+        fallback={"state":"working","title":"任务 B","task_titles":["任务 B","任务 A"],"active_count":2}
+        merged=bridge.merge_active_snapshots(live,fallback)
+        self.assertEqual(merged["active_count"],2)
+        self.assertEqual(merged["task_titles"],["任务 A","任务 B"])
+
+    def test_waiting_task_wins_priority_while_preserving_total(self):
+        live={"state":"working","title":"任务 A","task_titles":["任务 A"],"active_count":1}
+        fallback={"state":"waiting","title":"任务 B","task_titles":["任务 B"],"active_count":2}
+        merged=bridge.merge_active_snapshots(live,fallback)
+        self.assertEqual(merged["state"],"waiting")
+        self.assertEqual(merged["active_count"],2)
 
 if __name__=="__main__":unittest.main()

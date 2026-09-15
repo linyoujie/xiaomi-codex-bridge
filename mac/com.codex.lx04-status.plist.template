@@ -9,6 +9,6 @@
   <key>StandardErrorPath</key><string>/tmp/codex-lx04-status.err</string>
   <key>EnvironmentVariables</key><dict>
     <key>ADB_PATH</key><string>/opt/homebrew/bin/adb</string>
-    <key>LX04_SERIAL</key><string>21065/C0VP67106</string>
+    <key>LX04_SERIAL</key><string>__DEVICE_SERIAL__</string>
   </dict>
 </dict></plist>

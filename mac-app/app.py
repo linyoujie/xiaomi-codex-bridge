@@ -5,10 +5,11 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 APP=Path(__file__).resolve().parent
+BRAND=APP/"brand-logo.png"
 DATA=Path.home()/"Library"/"Application Support"/"XiaomiBridge"
 CONFIG=DATA/"config.json"
-DEFAULT={"serial":"21065/C0VP67106","origin":"W 42nd St & Broadway, New York, NY 10036",
-    "destination":"142nd St & 60th Ave, Flushing, NY 11355","refresh":"300",
+DEFAULT={"serial":"","origin":"",
+    "destination":"","refresh":"300",
     "mode":"transit","adb":"/opt/homebrew/bin/adb","chrome":"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome","login":True}
 lock=threading.Lock();bridge=None;message="准备启动"
 
@@ -57,7 +58,8 @@ def page():
     c=load();esc=lambda k:html.escape(str(c[k]),quote=True)
     return f'''<!doctype html><meta charset="utf-8"><title>Xiaomi桥接器</title><style>
     body{{margin:0;background:#05090d;color:#edfaff;font:15px -apple-system;padding:36px}}main{{max-width:760px;margin:auto}}
-    h1{{font-size:34px;margin:0;color:#62f4df}}p{{color:#8293a9}}label{{display:block;margin:17px 0 6px}}
+    .brand{{display:flex;align-items:center;gap:18px;margin-bottom:6px}}.brand img{{width:76px;height:76px;border-radius:21px;box-shadow:0 0 28px #735cff40}}
+    h1{{font-size:34px;margin:0;color:#62f4df}}.brand p{{margin:7px 0 0}}p{{color:#8293a9}}label{{display:block;margin:17px 0 6px}}
     input{{box-sizing:border-box;width:100%;padding:11px 13px;border:1px solid #26384a;border-radius:9px;background:#0b131b;color:white;font-size:15px}}
     .modes{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}}.modes input{{position:absolute;opacity:0;pointer-events:none}}
     .modes label{{margin:0;padding:13px;text-align:center;border:1px solid #26384a;border-radius:10px;background:#0b131b;color:#91a1b5;cursor:pointer;transition:.18s}}
@@ -65,7 +67,7 @@ def page():
     .buttons{{display:flex;gap:10px;margin-top:24px}}button{{padding:11px 16px;border:0;border-radius:9px;background:#38d9c0;color:#03100d;font-weight:700}}
     button.secondary{{background:#172532;color:#d8e7f2}}.status{{margin-top:22px;padding:14px;border:1px solid #1b665c;border-radius:9px;color:#62f4df}}
     .check{{display:flex;gap:9px;align-items:center}}.check input{{width:auto}}
-    </style><main><h1>Xiaomi桥接器</h1><p>Codex 状态 · LX04 显示 · 隐藏式公共交通查询</p><form method="post">
+    </style><main><div class="brand"><img src="/brand-logo.png" alt="Codex 粒子萤火虫"><div><h1>Xiaomi桥接器</h1><p>Codex 状态 · LX04 显示 · 隐藏式通勤查询</p></div></div><form method="post">
     <label>设备序列号</label><input name="serial" value="{esc('serial')}"><label>通勤起点</label><input name="origin" value="{esc('origin')}">
     <label>通勤终点</label><input name="destination" value="{esc('destination')}"><label>出行方式</label><div class="modes">
     <input id="transit" type="radio" name="mode" value="transit" {'checked' if c['mode']=='transit' else ''}><label for="transit">公共交通</label>
@@ -77,7 +79,10 @@ def page():
     <div class="status">{html.escape(message)}</div><p>Chrome 无头渲染由 Xiaomi桥接器在后台完成，不会打开地图窗口。音响只收到分钟数和预计到家时间。</p></main>'''
 
 class Handler(BaseHTTPRequestHandler):
-    def do_GET(self):self.respond(page())
+    def do_GET(self):
+        if self.path=="/brand-logo.png" and BRAND.exists():
+            self.respond_bytes(BRAND.read_bytes(),"image/png")
+        else:self.respond(page())
     def do_POST(self):
         global message
         form=parse_qs(self.rfile.read(int(self.headers.get("Content-Length","0"))).decode());action=form.get("action",["save"])[0]
@@ -91,7 +96,9 @@ class Handler(BaseHTTPRequestHandler):
         else:restart()
         self.respond(page())
     def respond(self,data):
-        raw=data.encode();self.send_response(200);self.send_header("Content-Type","text/html; charset=utf-8");self.send_header("Content-Length",str(len(raw)));self.end_headers();self.wfile.write(raw)
+        self.respond_bytes(data.encode(),"text/html; charset=utf-8")
+    def respond_bytes(self,raw,content_type):
+        self.send_response(200);self.send_header("Content-Type",content_type);self.send_header("Cache-Control","no-cache");self.send_header("Content-Length",str(len(raw)));self.end_headers();self.wfile.write(raw)
     def log_message(self,*args):pass
 
 if __name__=="__main__":

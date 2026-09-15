@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-import glob,html,json,os,re,shlex,socket,sqlite3,struct,subprocess,threading,time
+import glob,html,json,mmap,os,re,shlex,socket,sqlite3,struct,subprocess,threading,time
 from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request,urlopen
 
-SERIAL=os.environ.get("LX04_SERIAL","21065/C0VP67106")
+SERIAL=os.environ.get("LX04_SERIAL","")
 ADB=os.environ.get("ADB_PATH","/opt/homebrew/bin/adb")
 CHROME=os.environ.get("CHROME_PATH","/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 CODEX=Path.home()/".codex"
 IPC=Path("/tmp/codex-ipc")/f"ipc-{os.getuid()}.sock"
-COMMUTE_ORIGIN=os.environ.get("LX04_COMMUTE_ORIGIN","W 42nd St & Broadway, New York, NY 10036")
-COMMUTE_DESTINATION=os.environ.get("LX04_COMMUTE_DESTINATION","142nd St & 60th Ave, Flushing, NY 11355")
+COMMUTE_ORIGIN=os.environ.get("LX04_COMMUTE_ORIGIN","")
+COMMUTE_DESTINATION=os.environ.get("LX04_COMMUTE_DESTINATION","")
 COMMUTE_MODE=os.environ.get("LX04_COMMUTE_MODE","transit")
 if COMMUTE_MODE not in {"transit","driving","walking"}:COMMUTE_MODE="transit"
 COMMUTE_REFRESH_SECONDS=max(60,int(os.environ.get("LX04_COMMUTE_REFRESH_SECONDS","300")))
@@ -20,6 +20,7 @@ COMPLETED_HOLD_SECONDS=8
 COMMUTE_MAX_RESPONSE=2*1024*1024
 
 def commute_url():
+    if not COMMUTE_ORIGIN or not COMMUTE_DESTINATION:raise ValueError("commute origin and destination are required")
     return "https://www.google.com/maps/dir/?"+urlencode({"api":"1","origin":COMMUTE_ORIGIN,
         "destination":COMMUTE_DESTINATION,"travelmode":COMMUTE_MODE})
 
@@ -81,18 +82,23 @@ def fetch_commute(timeout=12):
     return fetch_commute_options(timeout)[0]
 
 class CommuteMonitor:
-    def __init__(self,fetcher=fetch_commute,clock=time.time):
-        self.fetcher,self.clock=fetcher,clock
-        self.last_attempt=0;self.last_success=0;self.duration=None;self.options=[];self.was_idle=False
+    def __init__(self,fetcher=fetch_commute,clock=time.time,background=False):
+        self.fetcher,self.clock,self.background=fetcher,clock,background
+        self.last_attempt=0;self.last_success=0;self.duration=None;self.options=[];self.was_idle=False;self.in_flight=False
+    def _refresh(self):
+        try:
+            self.duration=int(self.fetcher());self.options=[self.duration];self.last_success=self.clock()
+            if os.environ.get("LX04_DEBUG"):print("commute minutes=",self.duration,flush=True)
+        except Exception as error:
+            if os.environ.get("LX04_DEBUG"):print("commute fetch error:",str(error)[:160],flush=True)
+        finally:self.in_flight=False
     def snapshot(self,is_idle):
         now=self.clock();entering=is_idle and not self.was_idle;self.was_idle=is_idle
-        if is_idle and (entering or now-self.last_attempt>=COMMUTE_REFRESH_SECONDS):
+        if is_idle and not self.in_flight and (entering or now-self.last_attempt>=COMMUTE_REFRESH_SECONDS):
             self.last_attempt=now
-            try:
-                self.duration=int(self.fetcher());self.options=[self.duration];self.last_success=now
-                if os.environ.get("LX04_DEBUG"):print("commute minutes=",self.duration,flush=True)
-            except Exception as error:
-                if os.environ.get("LX04_DEBUG"):print("commute fetch error:",str(error)[:160],flush=True)
+            if self.background:
+                self.in_flight=True;threading.Thread(target=self._refresh,daemon=True).start()
+            else:self._refresh()
         age=now-self.last_success if self.last_success else float("inf")
         available=self.duration is not None and age<=COMMUTE_EXPIRE_SECONDS
         return {"commute_available":available,"commute_duration_min":self.duration if available else -1,
@@ -221,8 +227,74 @@ def newest_session():
     paths=glob.glob(str(CODEX/"sessions"/"**"/"*.jsonl"),recursive=True)
     return max(paths,key=os.path.getmtime) if paths else None
 
+def selected_session():
+    paths=glob.glob(str(CODEX/"sessions"/"**"/"*.jsonl"),recursive=True)
+    recent=sorted(paths,key=os.path.getmtime,reverse=True)[:32];now=time.time();marked=[]
+    for path in recent:
+        marker=latest_turn_marker(path)
+        if marker:marked.append((path,marker,os.path.getmtime(path)))
+    active=[item for item in marked if item[1][0]=="working" and now-item[2]<120]
+    if active:return max(active,key=lambda item:item[2])[:2]
+    return (recent[0],latest_turn_marker(recent[0])) if recent else (None,None)
+
+def latest_turn_marker(path):
+    """Find turn state without loading huge ImageGen result lines into memory."""
+    markers={
+        "working":b'"type":"event_msg","payload":{"type":"task_started"',
+        "completed":b'"type":"event_msg","payload":{"type":"task_complete"',
+        "failed":b'"type":"event_msg","payload":{"type":"task_failed"',
+    }
+    try:
+        with open(path,"rb") as handle:
+            if os.fstat(handle.fileno()).st_size==0:return None
+            with mmap.mmap(handle.fileno(),0,access=mmap.ACCESS_READ) as data:
+                positions=[(data.rfind(marker),state) for state,marker in markers.items()]
+                position,state=max(positions)
+                if position<0:return None
+                nearby=data[position:position+500]
+                match=re.search(rb'"started_at":(\d+)',nearby)
+                return state,int(match.group(1))*1000 if match else int(os.path.getmtime(path)*1000)
+    except (OSError,ValueError):return None
+
+def usage_from_session(path):
+    """Read the newest rate-limit event without loading an entire session."""
+    try:
+        with open(path,"rb") as handle:
+            if os.fstat(handle.fileno()).st_size==0:return {}
+            with mmap.mmap(handle.fileno(),0,access=mmap.ACCESS_READ) as data:
+                position=len(data);record=None
+                for _ in range(64):
+                    position=data.rfind(b'"token_count"',0,position)
+                    if position<0:break
+                    start=data.rfind(b"\n",0,position)+1;end=data.find(b"\n",position)
+                    candidate=json.loads(data[start:end if end>=0 else len(data)])
+                    payload=candidate.get("payload",{})
+                    if candidate.get("type")=="event_msg" and payload.get("type")=="token_count":record=candidate;break
+                if record is None:return {}
+        payload=record.get("payload",{})
+        limits=payload.get("rate_limits") or payload.get("info",{}).get("rate_limits",{})
+        windows=[]
+        for value in limits.values():
+            if isinstance(value,dict) and isinstance(value.get("window_minutes"),(int,float)) and isinstance(value.get("used_percent"),(int,float)):
+                windows.append((int(value["window_minutes"]),max(0,min(100,int(round(value["used_percent"]))))))
+        weekly=[item for item in windows if item[0]>=6*24*60]
+        short=[item for item in windows if 240<=item[0]<=360]
+        return {"quota_5h_percent":short[0][1] if short else -1,"quota_7d_percent":weekly[0][1] if weekly else -1}
+    except (OSError,ValueError,TypeError,json.JSONDecodeError,UnicodeDecodeError):return {}
+
+class UsageMonitor:
+    def __init__(self,clock=time.time):self.clock,self.last_check,self.cached=clock,0,{}
+    def snapshot(self):
+        now=self.clock()
+        if now-self.last_check>=15:
+            self.last_check=now;paths=glob.glob(str(CODEX/"sessions"/"**"/"*.jsonl"),recursive=True)
+            for path in sorted(paths,key=os.path.getmtime,reverse=True)[:32]:
+                result=usage_from_session(path)
+                if result.get("quota_7d_percent",-1)>=0:self.cached=result;break
+        return dict(self.cached)
+
 def fallback_snapshot():
-    path=newest_session()
+    path,marker=selected_session()
     if not path:return None
     try:
         with open(path,"rb") as handle:
@@ -243,9 +315,35 @@ def fallback_snapshot():
             pending.discard(call_id)
             if not pending:state="working"
     if pending:state="waiting"
+    elif marker:state,started_ms=marker;started=started_ms/1000
     match=re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}",os.path.basename(path))
     title=title_for(match.group(0) if match else "")
-    return {"state":state,"title":title,"task_titles":[title],"phase":"等待确认" if state=="waiting" else "执行中","started_at_ms":int(started*1000),"active_count":1 if state in {"working","waiting"} else 0}
+    active_titles=[]
+    if state in {"working","waiting"}:
+        now=time.time();paths=glob.glob(str(CODEX/"sessions"/"**"/"*.jsonl"),recursive=True)
+        for candidate in sorted(paths,key=os.path.getmtime,reverse=True)[:32]:
+            candidate_marker=latest_turn_marker(candidate)
+            if not candidate_marker or candidate_marker[0]!="working" or now-os.path.getmtime(candidate)>600:continue
+            task_match=re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27}",os.path.basename(candidate))
+            task_title=title_for(task_match.group(0) if task_match else "")
+            if task_title not in active_titles:active_titles.append(task_title)
+            if len(active_titles)>=6:break
+    if not active_titles:active_titles=[title]
+    return {"state":state,"title":title,"task_titles":active_titles,"phase":"等待确认" if state=="waiting" else "执行中","started_at_ms":int(started*1000),"active_count":len(active_titles) if state in {"working","waiting"} else 0}
+
+def merge_active_snapshots(live,fallback):
+    if not live:return fallback
+    if not fallback:return live
+    active={"working","waiting"}
+    if live.get("state") not in active or fallback.get("state") not in active:return live
+    base=dict(fallback if fallback.get("state")=="waiting" and live.get("state")!="waiting" else live)
+    titles=[]
+    for snapshot in (base,live,fallback):
+        for title in snapshot.get("task_titles",[snapshot.get("title","Codex 任务")]):
+            if title and title not in titles:titles.append(title)
+    base["task_titles"]=titles[:6]
+    base["active_count"]=max(len(titles),int(live.get("active_count",0)),int(fallback.get("active_count",0)))
+    return base
 
 def send(snapshot):
     now=int(time.time()*1000)
@@ -264,12 +362,13 @@ def send(snapshot):
         return False
 
 def main():
-    ipc,commute,last,last_sent=IPCMonitor(),CommuteMonitor(),None,0
+    ipc,commute,usage,last,last_sent=IPCMonitor(),CommuteMonitor(background=True),UsageMonitor(),None,0
     completed_since=0
     while True:
         live,fallback=ipc.snapshot(),fallback_snapshot()
         if os.environ.get("LX04_DEBUG"):print("live=",live,"fallback=",fallback,flush=True)
-        if fallback and fallback["state"] in {"working","waiting"} and (not live or live["state"] not in {"working","waiting"}):snap=fallback
+        if live and fallback and live.get("state") in {"working","waiting"} and fallback.get("state") in {"working","waiting"}:snap=merge_active_snapshots(live,fallback)
+        elif fallback and fallback["state"] in {"working","waiting"} and (not live or live["state"] not in {"working","waiting"}):snap=fallback
         else:snap=live or fallback or {"state":"idle","title":"Codex","phase":"","started_at_ms":int(time.time()*1000),"active_count":0}
         if snap["state"]=="completed":
             if not completed_since:completed_since=time.time()
@@ -278,6 +377,7 @@ def main():
         # Keep the commute page fresh even while Codex is working, because the
         # user can swipe to it at any time.
         snap.update(commute.snapshot(True))
+        snap.update(usage.snapshot())
         key=json.dumps(snap,sort_keys=True,ensure_ascii=False)
         if key!=last or time.time()-last_sent>=30:
             if send(snap):last,last_sent=key,time.time()
