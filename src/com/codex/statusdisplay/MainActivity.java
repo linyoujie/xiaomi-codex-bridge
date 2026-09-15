@@ -109,7 +109,7 @@ public final class MainActivity extends Activity {
             int remaining=Math.max(0,100-value);
             if(resetsAt>now){
                 long minutes=Math.max(1,(resetsAt-now+59_999L)/60_000L);
-                String until=minutes<24*60?((minutes+59)/60)+"小时后 reset":((minutes+1439)/1440)+"天后 reset";
+                String until=minutes<24*60?((minutes+59)/60)+"小时后重置":((minutes+1439)/1440)+"天后重置";
                 String weekday=shortChineseWeekday(resetsAt);
                 text(c,weekday+" · "+until,x,y,18,Color.rgb(203,213,225),false,Paint.Align.LEFT);
             }
